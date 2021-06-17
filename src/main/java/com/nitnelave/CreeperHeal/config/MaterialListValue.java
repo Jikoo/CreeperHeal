@@ -18,8 +18,16 @@ class MaterialListValue extends ConfigValue<HashSet<Material>>
     protected void load()
     {
         HashSet<Material> set = new HashSet<>();
-        String tmp_str1 = config.getString(getKey(), "").trim();
-        String[] split = tmp_str1.split(",");
+        String tmp_str1 = config.getString(getKey(), "");
+
+        if (tmp_str1 == null)
+        {
+            setValue(set);
+            return;
+        }
+
+        String[] split = tmp_str1.trim().split(",");
+
         for (String elem : split)
         {
             elem = elem.trim();
@@ -27,6 +35,7 @@ class MaterialListValue extends ConfigValue<HashSet<Material>>
             if (material != null)
                 set.add(material);
         }
+
         setValue(set);
     }
 
@@ -75,12 +84,12 @@ class MaterialListValue extends ConfigValue<HashSet<Material>>
             if (materialName.indexOf(':') >= 0)
             {
                 String[] elemSplit = materialName.split(":");
-                id = Integer.valueOf(elemSplit[0]);
-                data = Byte.valueOf(elemSplit[1]);
+                id = Integer.parseInt(elemSplit[0]);
+                data = Byte.parseByte(elemSplit[1]);
             }
             else
             {
-                id = Integer.valueOf(materialName);
+                id = Integer.parseInt(materialName);
                 data = 0;
             }
         }
@@ -91,7 +100,7 @@ class MaterialListValue extends ConfigValue<HashSet<Material>>
 
         for (Material legacy : Material.values())
         {
-            if (!legacy.name().startsWith("LEAGACY_"))
+            if (!legacy.name().startsWith("LEGACY_"))
                 continue;
             if (legacy.getId() == id)
                 return legacy.getNewData(data).getItemType();
