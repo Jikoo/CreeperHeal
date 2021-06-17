@@ -16,3 +16,4 @@ javadoc.xml
 *.iml
 *.swp
 out
+**/dependency-reduced-pom.xml
