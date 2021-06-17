@@ -19,128 +19,112 @@ import java.util.concurrent.ThreadLocalRandom;
  *
  * @author Jikoo
  */
-class CreeperContainer extends CreeperMultiblock
-{
+class CreeperContainer extends CreeperMultiblock {
 
-    /*
-     * Constructor.
-     */
-    CreeperContainer(Container blockState)
-    {
-        super(blockState);
+  /*
+   * Constructor.
+   */
+  CreeperContainer(Container blockState) {
+    super(blockState);
 
-        Inventory inv = blockState.getInventory();
-        if (!(inv instanceof DoubleChestInventory))
-            return;
+    Inventory inv = blockState.getInventory();
+    if (!(inv instanceof DoubleChestInventory)) return;
 
-        DoubleChestInventory doubleChest = ((DoubleChestInventory) inv);
+    DoubleChestInventory doubleChest = ((DoubleChestInventory) inv);
 
-        Location location = doubleChest.getRightSide().getLocation();
-        if (location == null)
-            return;
+    Location location = doubleChest.getRightSide().getLocation();
+    if (location == null) return;
 
-        BlockState right = location.getBlock().getState();
+    BlockState right = location.getBlock().getState();
 
-        location = doubleChest.getLeftSide().getLocation();
-        if (location == null)
-            return;
+    location = doubleChest.getLeftSide().getLocation();
+    if (location == null) return;
 
-        // Left side is primary chest inventory
-        this.blockState = location.getBlock().getState();
-        this.dependents.add(right);
+    // Left side is primary chest inventory
+    this.blockState = location.getBlock().getState();
+    this.dependents.add(right);
+  }
 
+  /*
+   * @see com.nitnelave.CreeperHeal.block.Replaceable#remove()
+   */
+  @Override
+  public void remove() {
+    World world = blockState.getWorld();
+    if (CreeperConfig.getWorld(world).getBool(WCfgVal.DROP_CHEST_CONTENTS)) {
+      Location location = blockState.getLocation().add(0.5, 0.5, 0.5);
+      for (ItemStack itemStack : ((Container) blockState).getSnapshotInventory().getContents())
+        if (itemStack != null) world.dropItemNaturally(location, itemStack);
+      ((Container) blockState).getSnapshotInventory().clear();
+      blockState.update(true, false);
+      for (BlockState dependent : dependents) {
+        if (!(dependent instanceof Container)) continue;
+        location = dependent.getLocation().add(0.5, 0.5, 0.5);
+        for (ItemStack itemStack : ((Container) dependent).getSnapshotInventory().getContents())
+          if (itemStack != null) world.dropItemNaturally(location, itemStack);
+        ((Container) dependent).getSnapshotInventory().clear();
+        dependent.update(true, false);
+      }
     }
 
-    /*
-     * @see com.nitnelave.CreeperHeal.block.Replaceable#remove()
-     */
-    @Override
-    public void remove()
-    {
-        World world = blockState.getWorld();
-        if (CreeperConfig.getWorld(world).getBool(WCfgVal.DROP_CHEST_CONTENTS))
-        {
-            Location location = blockState.getLocation().add(0.5, 0.5, 0.5);
-            for (ItemStack itemStack : ((Container) blockState).getSnapshotInventory().getContents())
-                if (itemStack != null)
-                    world.dropItemNaturally(location, itemStack);
-            ((Container) blockState).getSnapshotInventory().clear();
-            blockState.update(true, false);
-            for (BlockState dependent : dependents)
-            {
-                if (!(dependent instanceof Container))
-                    continue;
-                location = dependent.getLocation().add(0.5, 0.5, 0.5);
-                for (ItemStack itemStack : ((Container) dependent).getSnapshotInventory().getContents())
-                    if (itemStack != null)
-                        world.dropItemNaturally(location, itemStack);
-                ((Container) dependent).getSnapshotInventory().clear();
-                dependent.update(true, false);
-            }
-        }
+    ((Container) blockState).getInventory().clear();
+    for (BlockState dependent : dependents)
+      if (dependent instanceof Container) ((Container) dependent).getInventory().clear();
 
-        ((Container) blockState).getInventory().clear();
-        for (BlockState dependent : dependents)
-            if (dependent instanceof Container)
-                ((Container) dependent).getInventory().clear();
+    super.remove();
+  }
 
-        super.remove();
+  /*
+   * @see com.nitnelave.CreeperHeal.block.Replaceable#drop(boolean)
+   */
+  @Override
+  public boolean drop(boolean forced) {
+    if (forced || CreeperConfig.shouldDrop()) {
+      BlockState current = blockState.getBlock().getState();
+      blockState.update(true, false);
+      Collection<ItemStack> drop = blockState.getBlock().getDrops();
+      current.update(true, false);
+      Location location = blockState.getLocation().add(0.5, 0.5, 0.5);
+      World world = blockState.getWorld();
+
+      for (ItemStack s : drop) world.dropItemNaturally(location, s);
+
+      for (BlockState dependent : dependents) {
+        current = dependent.getBlock().getState();
+        dependent.update(true, false);
+        drop = dependent.getBlock().getDrops();
+        current.update(true, false);
+        location = dependent.getLocation().add(0.5, 0.5, 0.5);
+        world = dependent.getWorld();
+        for (ItemStack s : drop) world.dropItemNaturally(location, s);
+      }
+      return true;
     }
+    return false;
+  }
 
-    /*
-     * @see com.nitnelave.CreeperHeal.block.Replaceable#drop(boolean)
-     */
-    @Override
-    public boolean drop(boolean forced)
-    {
-        if (forced || CreeperConfig.shouldDrop())
-        {
-            BlockState current = blockState.getBlock().getState();
-            blockState.update(true, false);
-            Collection<ItemStack> drop = blockState.getBlock().getDrops();
-            current.update(true, false);
-            Location location = blockState.getLocation().add(0.5, 0.5, 0.5);
-            World world = blockState.getWorld();
+  /*
+   * @see com.nitnelave.CreeperHeal.block.Replaceable#update()
+   */
+  @Override
+  public void update() {
+    blockState.getChunk().load();
+    if (CreeperConfig.getWorld(getWorld()).getBool(WCfgVal.DROP_CHEST_CONTENTS))
+      ((Container) blockState).getSnapshotInventory().clear();
+    blockState.update(true, false);
 
-            for (ItemStack s : drop)
-                world.dropItemNaturally(location, s);
-
-            for (BlockState dependent : dependents)
-            {
-                current = dependent.getBlock().getState();
-                dependent.update(true, false);
-                drop = dependent.getBlock().getDrops();
-                current.update(true, false);
-                location = dependent.getLocation().add(0.5, 0.5, 0.5);
-                world = dependent.getWorld();
-                for (ItemStack s : drop)
-                    world.dropItemNaturally(location, s);
-            }
-            return true;
-        }
-        return false;
-    }
-
-    /*
-     * @see com.nitnelave.CreeperHeal.block.Replaceable#update()
-     */
-    @Override
-    public void update()
-    {
-        blockState.getChunk().load();
-        if (CreeperConfig.getWorld(getWorld()).getBool(WCfgVal.DROP_CHEST_CONTENTS))
-            ((Container) blockState).getSnapshotInventory().clear();
-        blockState.update(true, false);
-
-        dependents.forEach(state ->
-        {
-            if (CreeperConfig.getWorld(getWorld()).getBool(WCfgVal.DROP_CHEST_CONTENTS) && state instanceof Container)
-                ((Container) state).getSnapshotInventory().clear();
-            state.update(true, false);
+    dependents.forEach(
+        state -> {
+          if (CreeperConfig.getWorld(getWorld()).getBool(WCfgVal.DROP_CHEST_CONTENTS)
+              && state instanceof Container) ((Container) state).getSnapshotInventory().clear();
+          state.update(true, false);
         });
 
-        getWorld().playSound(getLocation(), CreeperConfig.getSound(), CreeperConfig.getInt(CfgVal.SOUND_VOLUME) / 10F,
-                ThreadLocalRandom.current().nextFloat() * 2);
-    }
-
+    getWorld()
+        .playSound(
+            getLocation(),
+            CreeperConfig.getSound(),
+            CreeperConfig.getInt(CfgVal.SOUND_VOLUME) / 10F,
+            ThreadLocalRandom.current().nextFloat() * 2);
+  }
 }

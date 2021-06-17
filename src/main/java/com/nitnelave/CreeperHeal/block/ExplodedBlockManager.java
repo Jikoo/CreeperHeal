@@ -26,298 +26,248 @@ import java.util.ListIterator;
 
 /**
  * Manager for the explosions list and the explosion index.
- * 
+ *
  * @author nitnelave
- * 
  */
-public class ExplodedBlockManager
-{
+public class ExplodedBlockManager {
+
+  /*
+   * List of explosions, to replace the blocks.
+   */
+  private static final List<CreeperExplosion> explosionList = new LinkedList<>();
+  /*
+   * List to temporarily store the paintings before adding them to the
+   * explosion right after.
+   */
+  private static final List<Replaceable> brokenEntityList = new ArrayList<>();
+  /*
+   * Map of the explosions, if the plugin is not in lightweight mode.
+   */
+  private static NeighborExplosion explosionIndex;
+  /*
+   * Block replacement task.
+   */
+  private static BukkitTask task;
+
+  public static void init() {
+    if (CreeperConfig.getBool(CfgVal.LEAVES_VINES)) {
+      explosionIndex = new NeighborExplosion();
+      Bukkit.getScheduler()
+          .scheduleSyncRepeatingTask(
+              CreeperHeal.getInstance(), ExplodedBlockManager::cleanIndex, 200, 7200);
+    }
+    scheduleTask();
+  }
+
+  /**
+   * Replace all the blocks of the explosions that happened near a player. Near is defined in the
+   * config by the parameter "advanced.distance-near".
+   *
+   * @param target The player around whom the explosions are replaced.
+   */
+  public static void replaceNear(Player target) {
+    removeExplosionsAround(target.getLocation(), CreeperConfig.getInt(CfgVal.DISTANCE_NEAR));
+  }
+
+  /*
+   * Remove all the explosions close enough around the location.
+   */
+  private static void removeExplosionsAround(Location loc, float distanceNear) {
+    World w = loc.getWorld();
+    LinkedList<CreeperExplosion> pass = new LinkedList<>();
+    ListIterator<CreeperExplosion> iter = explosionList.listIterator();
+    while (iter.hasNext()) {
+      CreeperExplosion ex = iter.next();
+      Location l = ex.getLocation();
+      if (l.getWorld() == w && distanceNear > l.distance(loc)) {
+        ex.replace_blocks(false, CHBlockHealReason.FORCED);
+        pass.add(ex);
+        iter.remove();
+      }
+    }
+    for (CreeperExplosion ex : pass) {
+      ex.replace_blocks(true, CHBlockHealReason.FORCED);
+      if (CreeperConfig.getBool(CfgVal.LEAVES_VINES)) explosionIndex.removeElement(ex);
+    }
+  }
+
+  /**
+   * Force the replacement of all explosions in the specified world.
+   *
+   * @param world The world in which the explosions happened.
+   */
+  public static void forceReplace(WorldConfig world) {
+    removeExplosionsAround(world.getWorld().getSpawnLocation(), Float.POSITIVE_INFINITY);
+    BurntBlockManager.forceReplaceBurnt(world);
+  }
+
+  /** Force the replacement of all explosions. */
+  public static void forceReplace() {
+    ListIterator<CreeperExplosion> iter = explosionList.listIterator();
+    LinkedList<CreeperExplosion> pass = new LinkedList<>();
+    while (iter.hasNext()) {
+      CreeperExplosion ex = iter.next();
+      ex.replace_blocks(false, CHBlockHealReason.FORCED);
+      pass.add(ex);
+      iter.remove();
+    }
+    for (CreeperExplosion ex : pass) {
+      ex.replace_blocks(true, CHBlockHealReason.FORCED);
+      if (CreeperConfig.getBool(CfgVal.LEAVES_VINES)) explosionIndex.removeElement(ex);
+    }
+    BurntBlockManager.forceReplaceBurnt();
+  }
+
+  /**
+   * Record all the blocks destroyed by an entity exploding.
+   *
+   * @param event The explosion.
+   */
+  public static void processExplosion(
+      EntityExplodeEvent event, CHExplosionRecordEvent.ExplosionReason reason) {
+    processExplosion(event.blockList(), event.getLocation(), reason);
+  }
+
+  /**
+   * Record all the blocks destroyed by an block exploding.
+   *
+   * @param event The explosion.
+   */
+  public static void processExplosion(BlockExplodeEvent event) {
+    processExplosion(
+        event.blockList(),
+        event.getBlock().getLocation(),
+        CHExplosionRecordEvent.ExplosionReason.OTHER);
+  }
+
+  /**
+   * Record all the blocks in the list, with the location as the source of the explosion.
+   *
+   * @param originalBlockList The list of destroyed blocks.
+   * @param location The location of the explosion.
+   */
+  public static void processExplosion(
+      List<Block> originalBlockList,
+      Location location,
+      CHExplosionRecordEvent.ExplosionReason reason) {
+    if (PluginHandler.isInArena(location)) return;
+
+    // process list is the list of blocks yet to be processed by creeperheal.
+    CHExplosionRecordEvent event = new CHExplosionRecordEvent(originalBlockList, location, reason);
+    Bukkit.getPluginManager().callEvent(event);
+    if (event.isCancelled()) return;
+    List<Block> processList = new ArrayList<>(event.getBlocks());
+    for (Block b : event.getProtectedBlocks()) {
+      CreeperBlock cb = CreeperBlock.newBlock(b.getState());
+      if (cb != null) {
+        ToReplaceList.addToReplace(cb);
+        cb.remove();
+      }
+    }
+
+    CreeperExplosion cEx = null;
+
+    if (CreeperConfig.getBool(CfgVal.LEAVES_VINES) && CreeperConfig.getBool(CfgVal.JOIN_EXPLOSIONS))
+      cEx = explosionIndex.getNeighbor(location);
+
+    if (cEx == null || cEx.hasStartedReplacing()) {
+      cEx = new CreeperExplosion(location);
+      explosionList.add(cEx);
+      if (CreeperConfig.getBool(CfgVal.LEAVES_VINES))
+        explosionIndex.addElement(cEx, location.getX(), location.getZ());
+    }
+
+    cEx.addBlocks(processList, location);
+
+    for (Replaceable h : brokenEntityList) cEx.recordEntity(h);
+    brokenEntityList.clear();
 
     /*
-     * List of explosions, to replace the blocks.
+     * Immediately replace the blocks marked for immediate replacement.
      */
-    private static final List<CreeperExplosion> explosionList = new LinkedList<>();
-    /*
-     * Map of the explosions, if the plugin is not in lightweight mode.
-     */
-    private static NeighborExplosion explosionIndex;
+    ToReplaceList.replaceProtected();
+  }
 
-    /*
-     * List to temporarily store the paintings before adding them to the
-     * explosion right after.
-     */
-    private static final List<Replaceable> brokenEntityList = new ArrayList<>();
-
-    /*
-     * Block replacement task.
-     */
-    private static BukkitTask task;
-
-    public static void init()
-    {
-        if (CreeperConfig.getBool(CfgVal.LEAVES_VINES))
-        {
-            explosionIndex = new NeighborExplosion();
-            Bukkit.getScheduler().scheduleSyncRepeatingTask(CreeperHeal.getInstance(),
-                    ExplodedBlockManager::cleanIndex, 200, 7200);
+  /** Check to see if any block has to be replaced in the explosions. */
+  private static void checkReplace() { // check to see if any block has to be replaced
+    ListIterator<CreeperExplosion> iter = explosionList.listIterator();
+    while (iter.hasNext()) {
+      CreeperExplosion ex = iter.next();
+      if (ex.checkReplace()) {
+        if (ex.isEmpty()) {
+          iter.remove();
+          if (CreeperConfig.getBool(CfgVal.LEAVES_VINES)) explosionIndex.removeElement(ex);
         }
-        scheduleTask();
+      } else break;
     }
+    //        HangingsManager.replaceHangings (new Date ());
 
-    /**
-     * Replace all the blocks of the explosions that happened near a player.
-     * Near is defined in the config by the parameter "advanced.distance-near".
-     * 
-     * @param target
-     *            The player around whom the explosions are replaced.
-     */
-    public static void replaceNear(Player target)
-    {
-        removeExplosionsAround(target.getLocation(), CreeperConfig.getInt(CfgVal.DISTANCE_NEAR));
+  }
+
+  /**
+   * Get whether the location is in the radius of an explosion. Do not use when in light weight
+   * mode.
+   *
+   * @param location The location to check.
+   * @return Whether the location is in the radius of an explosion.
+   */
+  public static boolean isNextToExplosion(Location location) {
+    return CreeperConfig.getBool(CfgVal.LEAVES_VINES) && explosionIndex.hasNeighbor(location);
+  }
+
+  /*
+   * Clean the explosion map from useless empty explosions. Do not use when in
+   * light weight mode.
+   */
+  private static void cleanIndex() {
+    if (!CreeperConfig.getBool(CfgVal.LEAVES_VINES)) return;
+    explosionIndex.clean();
+  }
+
+  /**
+   * Get whether there are no more explosions to replace.
+   *
+   * @return Whether there are no more explosions to replace.
+   */
+  public static boolean isExplosionListEmpty() {
+    return explosionList.isEmpty();
+  }
+
+  /**
+   * Record a hanging as part of the explosion.
+   *
+   * @param hanging The hanging to record.
+   */
+  public static void recordHanging(Hanging hanging) {
+    CreeperHanging h = CreeperHanging.newHanging(hanging);
+    if (h != null) {
+      brokenEntityList.add(h);
+      h.remove();
     }
+  }
 
-    /*
-     * Remove all the explosions close enough around the location.
-     */
-    private static void removeExplosionsAround(Location loc, float distanceNear)
-    {
-        World w = loc.getWorld();
-        LinkedList<CreeperExplosion> pass = new LinkedList<>();
-        ListIterator<CreeperExplosion> iter = explosionList.listIterator();
-        while (iter.hasNext())
-        {
-            CreeperExplosion ex = iter.next();
-            Location l = ex.getLocation();
-            if (l.getWorld() == w && distanceNear > l.distance(loc))
-            {
-                ex.replace_blocks(false, CHBlockHealReason.FORCED);
-                pass.add(ex);
-                iter.remove();
-            }
-        }
-        for (CreeperExplosion ex : pass)
-        {
-            ex.replace_blocks(true, CHBlockHealReason.FORCED);
-            if (CreeperConfig.getBool(CfgVal.LEAVES_VINES))
-                explosionIndex.removeElement(ex);
-        }
+  /** Record a hanging as part of the explosion. */
+  public static void recordArmorStand(ArmorStand stand) {
+    brokenEntityList.add(new CreeperArmorStand(stand));
+  }
 
-    }
+  private static void scheduleTask() {
+    // check to replace explosions/blocks
+    task =
+        Bukkit.getServer()
+            .getScheduler()
+            .runTaskTimer(
+                CreeperHeal.getInstance(),
+                ExplodedBlockManager::checkReplace,
+                0,
+                CreeperConfig.getBool(CfgVal.BLOCK_PER_BLOCK)
+                    ? CreeperConfig.getInt(CfgVal.BLOCK_PER_BLOCK_INTERVAL)
+                    : 100);
+  }
 
-    /**
-     * Force the replacement of all explosions in the specified world.
-     * 
-     * @param world
-     *            The world in which the explosions happened.
-     */
-    public static void forceReplace(WorldConfig world)
-    {
-        removeExplosionsAround(world.getWorld().getSpawnLocation(), Float.POSITIVE_INFINITY);
-        BurntBlockManager.forceReplaceBurnt(world);
-    }
-
-    /**
-     * Force the replacement of all explosions.
-     */
-    public static void forceReplace()
-    {
-        ListIterator<CreeperExplosion> iter = explosionList.listIterator();
-        LinkedList<CreeperExplosion> pass = new LinkedList<>();
-        while (iter.hasNext())
-        {
-            CreeperExplosion ex = iter.next();
-            ex.replace_blocks(false, CHBlockHealReason.FORCED);
-            pass.add(ex);
-            iter.remove();
-        }
-        for (CreeperExplosion ex : pass)
-        {
-            ex.replace_blocks(true, CHBlockHealReason.FORCED);
-            if (CreeperConfig.getBool(CfgVal.LEAVES_VINES))
-                explosionIndex.removeElement(ex);
-        }
-        BurntBlockManager.forceReplaceBurnt();
-    }
-
-    /**
-     * Record all the blocks destroyed by an entity exploding.
-     * 
-     * @param event
-     *            The explosion.
-     */
-    public static void processExplosion(EntityExplodeEvent event,
-                                        CHExplosionRecordEvent.ExplosionReason reason)
-    {
-        processExplosion(event.blockList(), event.getLocation(), reason);
-    }
-
-    /**
-     * Record all the blocks destroyed by an block exploding.
-     *
-     * @param event
-     *            The explosion.
-     */
-    public static void processExplosion(BlockExplodeEvent event)
-    {
-        processExplosion(event.blockList(), event.getBlock().getLocation(),
-                         CHExplosionRecordEvent.ExplosionReason.OTHER);
-    }
-
-    /**
-     * Record all the blocks in the list, with the location as the source of the
-     * explosion.
-     * 
-     * @param originalBlockList
-     *            The list of destroyed blocks.
-     * @param location
-     *            The location of the explosion.
-     */
-    public static void processExplosion(List<Block> originalBlockList, Location location,
-                                        CHExplosionRecordEvent.ExplosionReason reason)
-    {
-        if (PluginHandler.isInArena(location))
-            return;
-
-        //process list is the list of blocks yet to be processed by creeperheal.
-        CHExplosionRecordEvent event = new CHExplosionRecordEvent(originalBlockList, location, reason);
-        Bukkit.getPluginManager().callEvent(event);
-        if (event.isCancelled())
-            return;
-        List<Block> processList = new ArrayList<>(event.getBlocks());
-        for(Block b : event.getProtectedBlocks())
-        {
-            CreeperBlock cb = CreeperBlock.newBlock(b.getState());
-            if (cb != null)
-            {
-                ToReplaceList.addToReplace(cb);
-                cb.remove();
-            }
-        }
-
-        CreeperExplosion cEx = null;
-
-        if (CreeperConfig.getBool(CfgVal.LEAVES_VINES)
-            && CreeperConfig.getBool(CfgVal.JOIN_EXPLOSIONS))
-            cEx = explosionIndex.getNeighbor(location);
-
-        if (cEx == null || cEx.hasStartedReplacing())
-        {
-            cEx = new CreeperExplosion(location);
-            explosionList.add(cEx);
-            if (CreeperConfig.getBool(CfgVal.LEAVES_VINES))
-                explosionIndex.addElement(cEx, location.getX(), location.getZ());
-        }
-
-        cEx.addBlocks(processList, location);
-
-        for (Replaceable h : brokenEntityList)
-            cEx.recordEntity(h);
-        brokenEntityList.clear();
-
-        /*
-         * Immediately replace the blocks marked for immediate replacement.
-         */
-        ToReplaceList.replaceProtected();
-    }
-
-    /**
-     * Check to see if any block has to be replaced in the explosions.
-     */
-    private static void checkReplace()
-    { //check to see if any block has to be replaced
-        ListIterator<CreeperExplosion> iter = explosionList.listIterator();
-        while (iter.hasNext())
-        {
-            CreeperExplosion ex = iter.next();
-            if (ex.checkReplace())
-            {
-                if (ex.isEmpty())
-                {
-                    iter.remove();
-                    if (CreeperConfig.getBool(CfgVal.LEAVES_VINES))
-                        explosionIndex.removeElement(ex);
-                }
-            }
-            else
-                break;
-        }
-        //        HangingsManager.replaceHangings (new Date ());
-
-    }
-
-    /**
-     * Get whether the location is in the radius of an explosion. Do not use
-     * when in light weight mode.
-     * 
-     * @param location
-     *            The location to check.
-     * @return Whether the location is in the radius of an explosion.
-     */
-    public static boolean isNextToExplosion(Location location)
-    {
-        return CreeperConfig.getBool(CfgVal.LEAVES_VINES) && explosionIndex.hasNeighbor(location);
-    }
-
-    /*
-     * Clean the explosion map from useless empty explosions. Do not use when in
-     * light weight mode.
-     */
-    private static void cleanIndex()
-    {
-        if (!CreeperConfig.getBool(CfgVal.LEAVES_VINES))
-            return;
-        explosionIndex.clean();
-    }
-
-    /**
-     * Get whether there are no more explosions to replace.
-     * 
-     * @return Whether there are no more explosions to replace.
-     */
-    public static boolean isExplosionListEmpty()
-    {
-        return explosionList.isEmpty();
-    }
-
-    /**
-     * Record a hanging as part of the explosion.
-     * 
-     * @param hanging
-     *            The hanging to record.
-     */
-    public static void recordHanging(Hanging hanging)
-    {
-        CreeperHanging h = CreeperHanging.newHanging(hanging);
-        if (h != null)
-        {
-            brokenEntityList.add(h);
-            h.remove();
-        }
-    }
-
-    /**
-     * Record a hanging as part of the explosion.
-     */
-    public static void recordArmorStand(ArmorStand stand)
-    {
-        brokenEntityList.add(new CreeperArmorStand(stand));
-    }
-
-    private static void scheduleTask()
-    {
-        //check to replace explosions/blocks
-        task = Bukkit.getServer().getScheduler().runTaskTimer(CreeperHeal.getInstance(),
-                ExplodedBlockManager::checkReplace, 0,
-                CreeperConfig.getBool(CfgVal.BLOCK_PER_BLOCK) ? CreeperConfig.getInt(CfgVal.BLOCK_PER_BLOCK_INTERVAL) : 100);
-    }
-
-    /**
-     * Cancel and re-schedule the block replacement task, to update the block
-     * interval.
-     */
-    public static void rescheduleTask()
-    {
-        task.cancel();
-        scheduleTask();
-    }
+  /** Cancel and re-schedule the block replacement task, to update the block interval. */
+  public static void rescheduleTask() {
+    task.cancel();
+    scheduleTask();
+  }
 }

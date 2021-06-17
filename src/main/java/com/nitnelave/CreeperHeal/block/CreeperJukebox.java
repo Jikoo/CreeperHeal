@@ -16,70 +16,62 @@ import org.bukkit.event.entity.ItemSpawnEvent;
  *
  * @author Jikoo
  */
-public class CreeperJukebox extends CreeperBlock
-{
+public class CreeperJukebox extends CreeperBlock {
 
-    /*
-     * Constructor.
-     */
-    CreeperJukebox(Jukebox blockState)
-    {
-        super(blockState);
-        
+  /*
+   * Constructor.
+   */
+  CreeperJukebox(Jukebox blockState) {
+    super(blockState);
+  }
+
+  /*
+   * In Minecraft 1.13, discs inserted into jukeboxes preserve item meta. Craftbukkit does not properly handle this.
+   * The only way to "prevent" the disc dropping is to remove it immediately after it spawns.
+   *
+   * @see com.nitnelave.CreeperHeal.block.Replaceable#remove()
+   */
+  @Override
+  public void remove() {
+    Jukebox jukebox = ((Jukebox) blockState);
+
+    Listener recordDropListener = null;
+
+    if (!CreeperConfig.getWorld(getWorld()).getBool(WCfgVal.DROP_CHEST_CONTENTS)) {
+      recordDropListener = new RecordDropListener(jukebox.getPlaying());
+      Bukkit.getPluginManager().registerEvents(recordDropListener, CreeperHeal.getInstance());
     }
 
-    /*
-     * In Minecraft 1.13, discs inserted into jukeboxes preserve item meta. Craftbukkit does not properly handle this.
-     * The only way to "prevent" the disc dropping is to remove it immediately after it spawns.
-     *
-     * @see com.nitnelave.CreeperHeal.block.Replaceable#remove()
-     */
-    @Override
-    public void remove()
-    {
-        Jukebox jukebox = ((Jukebox) blockState);
+    super.remove();
 
-        Listener recordDropListener = null;
-        
-        if (!CreeperConfig.getWorld(getWorld()).getBool(WCfgVal.DROP_CHEST_CONTENTS))
-        {
-            recordDropListener = new RecordDropListener(jukebox.getPlaying());
-            Bukkit.getPluginManager().registerEvents(recordDropListener, CreeperHeal.getInstance());
-        }
+    if (recordDropListener != null) {
+      HandlerList.unregisterAll(recordDropListener);
+    }
+  }
 
-        super.remove();
+  /*
+   * @see com.nitnelave.CreeperHeal.block.Replaceable#update()
+   */
+  @Override
+  public void update() {
+    if (CreeperConfig.getWorld(getWorld()).getBool(WCfgVal.DROP_CHEST_CONTENTS))
+      blockState.getBlock().setType(Material.JUKEBOX);
+    else super.update();
+  }
 
-        if (recordDropListener != null) {
-            HandlerList.unregisterAll(recordDropListener);
-        }
+  private static class RecordDropListener implements Listener {
+
+    private final Material record;
+
+    private RecordDropListener(Material record) {
+      this.record = record;
     }
 
-    /*
-     * @see com.nitnelave.CreeperHeal.block.Replaceable#update()
-     */
-    @Override
-    public void update()
-    {
-        if (CreeperConfig.getWorld(getWorld()).getBool(WCfgVal.DROP_CHEST_CONTENTS))
-            blockState.getBlock().setType(Material.JUKEBOX);
-        else
-            super.update();
+    @EventHandler(ignoreCancelled = true)
+    public void onItemSpawn(ItemSpawnEvent event) {
+      if (event.getEntity().getItemStack().getType() == record) {
+        event.setCancelled(true);
+      }
     }
-
-    private static class RecordDropListener implements Listener {
-
-        private final Material record;
-
-        private RecordDropListener(Material record) {
-            this.record = record;
-        }
-
-        @EventHandler(ignoreCancelled = true)
-        public void onItemSpawn(ItemSpawnEvent event) {
-            if (event.getEntity().getItemStack().getType() == record) {
-                event.setCancelled(true);
-            }
-        }
-    }
-
+  }
 }

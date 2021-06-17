@@ -12,34 +12,31 @@ import org.bukkit.inventory.meta.BannerMeta;
  * @author drexplosionpd
  * @author Jikoo
  */
-public class CreeperBanner extends CreeperBlock
-{
+public class CreeperBanner extends CreeperBlock {
 
-    /*
-     * Constructor.
-     */
-    CreeperBanner(Banner banner)
-    {
-        super(banner);
+  /*
+   * Constructor.
+   */
+  CreeperBanner(Banner banner) {
+    super(banner);
+  }
+
+  /*
+   * @see com.nitnelave.CreeperHeal.block.Replaceable#drop(boolean)
+   */
+  @Override
+  public boolean drop(boolean forced) {
+    if (forced || CreeperConfig.shouldDrop()) {
+      ItemStack itemStack = new ItemStack(blockState.getType());
+      BannerMeta bannerMeta =
+          ((BannerMeta) Bukkit.getItemFactory().getItemMeta(blockState.getType()));
+      if (bannerMeta != null) bannerMeta.setPatterns(((Banner) blockState).getPatterns());
+      itemStack.setItemMeta(bannerMeta);
+      blockState
+          .getWorld()
+          .dropItemNaturally(blockState.getLocation().add(0.5, 0.5, 0.5), itemStack);
+      return true;
     }
-
-    /*
-     * @see com.nitnelave.CreeperHeal.block.Replaceable#drop(boolean)
-     */
-    @Override
-    public boolean drop(boolean forced)
-    {
-        if (forced || CreeperConfig.shouldDrop())
-        {
-            ItemStack itemStack = new ItemStack(blockState.getType());
-            BannerMeta bannerMeta = ((BannerMeta) Bukkit.getItemFactory().getItemMeta(blockState.getType()));
-            if (bannerMeta != null)
-                bannerMeta.setPatterns(((Banner) blockState).getPatterns());
-            itemStack.setItemMeta(bannerMeta);
-            blockState.getWorld().dropItemNaturally(blockState.getLocation().add(0.5, 0.5, 0.5), itemStack);
-            return true;
-        }
-        return false;
-    }
-
+    return false;
+  }
 }

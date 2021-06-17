@@ -1,51 +1,43 @@
 package com.nitnelave.CreeperHeal.config;
 
-import java.util.logging.Logger;
-
 import org.bukkit.configuration.file.YamlConfiguration;
 
-abstract class ConfigValue<T>
-{
+import java.util.logging.Logger;
 
-    private final String key;
-    T value;
-    private final T defaultValue;
-    final YamlConfiguration config;
-    protected final Logger log = Logger.getLogger("Minecraft");
+abstract class ConfigValue<T> {
 
-    ConfigValue(T value, YamlConfiguration config, String key)
-    {
-        defaultValue = value;
-        this.config = config;
-        this.key = key;
-        this.value = value;
-    }
+  protected final Logger log = Logger.getLogger("Minecraft");
+  final YamlConfiguration config;
+  private final String key;
+  private final T defaultValue;
+  T value;
 
-    T getValue()
-    {
-        return value;
-    }
+  ConfigValue(T value, YamlConfiguration config, String key) {
+    defaultValue = value;
+    this.config = config;
+    this.key = key;
+    this.value = value;
+  }
 
-    void setValue(T value)
-    {
-        this.value = value;
-    }
+  T getValue() {
+    return value;
+  }
 
-    T getDefaultValue()
-    {
-        return defaultValue;
-    }
+  void setValue(T value) {
+    this.value = value;
+  }
 
-    String getKey()
-    {
-        return key;
-    }
+  T getDefaultValue() {
+    return defaultValue;
+  }
 
-    protected abstract void load();
+  String getKey() {
+    return key;
+  }
 
-    void write()
-    {
-        config.set(key, value);
-    }
+  protected abstract void load();
 
+  void write() {
+    config.set(key, value);
+  }
 }

@@ -13,41 +13,37 @@ import org.bukkit.inventory.meta.BlockStateMeta;
  *
  * @author Jikoo
  */
-public class CreeperShulkerBox extends CreeperBlock
-{
+public class CreeperShulkerBox extends CreeperBlock {
 
-    CreeperShulkerBox(ShulkerBox blockState)
-    {
-        super(blockState);
+  CreeperShulkerBox(ShulkerBox blockState) {
+    super(blockState);
+  }
+
+  /*
+   * @see com.nitnelave.CreeperHeal.block.Replaceable#drop(boolean)
+   */
+  @Override
+  public boolean drop(boolean forced) {
+    if (forced || CreeperConfig.shouldDrop()) {
+      // Drop shulker with contents inside
+      ItemStack itemStack = new ItemStack(blockState.getType());
+      BlockStateMeta blockStateMeta =
+          ((BlockStateMeta) Bukkit.getItemFactory().getItemMeta(Material.PURPLE_SHULKER_BOX));
+      if (blockStateMeta != null) {
+        blockStateMeta.setBlockState(blockState);
+      }
+      itemStack.setItemMeta(blockStateMeta);
+      blockState
+          .getWorld()
+          .dropItemNaturally(blockState.getLocation().add(0.5, 0.5, 0.5), itemStack);
+      return true;
+    } else {
+      // Always drop container contents
+      Location location = blockState.getLocation().add(0.5, 0.5, 0.5);
+      for (ItemStack itemStack : ((ShulkerBox) blockState).getInventory().getContents()) {
+        blockState.getWorld().dropItemNaturally(location, itemStack);
+      }
     }
-
-    /*
-     * @see com.nitnelave.CreeperHeal.block.Replaceable#drop(boolean)
-     */
-    @Override
-    public boolean drop(boolean forced)
-    {
-        if (forced || CreeperConfig.shouldDrop())
-        {
-            // Drop shulker with contents inside
-            ItemStack itemStack = new ItemStack(blockState.getType());
-            BlockStateMeta blockStateMeta = ((BlockStateMeta) Bukkit.getItemFactory().getItemMeta(Material.PURPLE_SHULKER_BOX));
-            if (blockStateMeta != null) {
-                blockStateMeta.setBlockState(blockState);
-            }
-            itemStack.setItemMeta(blockStateMeta);
-            blockState.getWorld().dropItemNaturally(blockState.getLocation().add(0.5, 0.5, 0.5), itemStack);
-            return true;
-        }
-        else
-        {
-            // Always drop container contents
-            Location location = blockState.getLocation().add(0.5, 0.5, 0.5);
-            for (ItemStack itemStack : ((ShulkerBox) blockState).getInventory().getContents()) {
-                blockState.getWorld().dropItemNaturally(location, itemStack);
-            }
-        }
-        return false;
-    }
-
+    return false;
+  }
 }

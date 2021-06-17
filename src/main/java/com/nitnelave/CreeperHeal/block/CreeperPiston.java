@@ -8,42 +8,42 @@ import org.bukkit.block.data.type.PistonHead;
 
 /**
  * Piston implementation of CreeperBlock.
- * 
+ *
  * @author nitnelave
  * @author Jikoo
- * 
  */
 class CreeperPiston extends CreeperMultiblock {
 
-    CreeperPiston(BlockState blockState) {
-        super(blockState);
+  CreeperPiston(BlockState blockState) {
+    super(blockState);
 
-        BlockData blockData = blockState.getBlockData();
+    BlockData blockData = blockState.getBlockData();
 
-        if (blockData instanceof Piston) {
+    if (blockData instanceof Piston) {
 
-            Piston piston = ((Piston) blockData);
-            Block headBlock = blockState.getBlock().getRelative(piston.getFacing());
-            BlockData headBlockData = headBlock.getBlockData();
+      Piston piston = ((Piston) blockData);
+      Block headBlock = blockState.getBlock().getRelative(piston.getFacing());
+      BlockData headBlockData = headBlock.getBlockData();
 
-            if (headBlockData instanceof PistonHead && ((PistonHead) headBlockData).getFacing() == piston.getFacing()) {
-                this.dependents.add(headBlock.getState());
-            }
+      if (headBlockData instanceof PistonHead
+          && ((PistonHead) headBlockData).getFacing() == piston.getFacing()) {
+        this.dependents.add(headBlock.getState());
+      }
 
-        } else if (blockData instanceof PistonHead) {
+    } else if (blockData instanceof PistonHead) {
 
-            PistonHead piston = ((PistonHead) blockData);
-            Block pistonBlock = blockState.getBlock().getRelative(piston.getFacing().getOppositeFace());
-            BlockData pistonBlockData = pistonBlock.getBlockData();
+      PistonHead piston = ((PistonHead) blockData);
+      Block pistonBlock = blockState.getBlock().getRelative(piston.getFacing().getOppositeFace());
+      BlockData pistonBlockData = pistonBlock.getBlockData();
 
-            if (pistonBlockData instanceof Piston && ((Piston) pistonBlockData).getFacing() == piston.getFacing()) {
-                this.blockState = pistonBlock.getState();
-                this.dependents.add(blockState);
-            }
+      if (pistonBlockData instanceof Piston
+          && ((Piston) pistonBlockData).getFacing() == piston.getFacing()) {
+        this.blockState = pistonBlock.getState();
+        this.dependents.add(blockState);
+      }
 
-        } else {
-            throw new IllegalArgumentException("Invalid BlockData: " + blockData.getClass().getName());
-        }
+    } else {
+      throw new IllegalArgumentException("Invalid BlockData: " + blockData.getClass().getName());
     }
-
+  }
 }
