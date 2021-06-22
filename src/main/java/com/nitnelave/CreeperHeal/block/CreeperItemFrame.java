@@ -42,13 +42,12 @@ class CreeperItemFrame extends CreeperHanging {
    *
    * @see com.nitnelave.CreeperHeal.block.Replaceable#replace(boolean)
    */
-  // TODO : frame position is not updated.
   @Override
   public boolean replace(boolean shouldDrop) {
     try {
-      ItemFrame frame = getWorld().spawn(location, ItemFrame.class);
-      frame.teleport(location);
       ItemFrame oldFrame = (ItemFrame) this.hanging;
+      ItemFrame frame = getWorld().spawn(location, oldFrame.getClass());
+      frame.teleport(location);
       frame.setItem(oldFrame.getItem());
       frame.setRotation(oldFrame.getRotation());
       frame.setFacingDirection(oldFrame.getFacing(), true);

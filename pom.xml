@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>com.nitnelave.CreeperHeal</groupId>
   <artifactId>CreeperHeal</artifactId>
-  <version>7.0.5-jikoo-4</version>
+  <version>7.0.5-jikoo-5-SNAPSHOT</version>
   <name>CreeperHeal</name>
   <description>
     CreeperHeal is a Bukkit plugin to handle explosions in a natural and non-destructive way.
@@ -79,7 +79,7 @@
     <dependency>
       <groupId>org.spigotmc</groupId>
       <artifactId>spigot-api</artifactId>
-      <version>1.16.4-R0.1-SNAPSHOT</version>
+      <version>1.17-R0.1-SNAPSHOT</version>
       <scope>provided</scope>
     </dependency>
   </dependencies>

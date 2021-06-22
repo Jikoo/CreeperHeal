@@ -77,6 +77,7 @@ public class CreeperBlock implements Replaceable {
           Material.LARGE_FERN,
           Material.LIGHT_WEIGHTED_PRESSURE_PLATE,
           Material.LILY_PAD,
+          Material.MOSS_CARPET,
           Material.NETHER_SPROUTS,
           Material.NETHER_WART,
           Material.NETHER_WART_BLOCK,
@@ -99,13 +100,17 @@ public class CreeperBlock implements Replaceable {
    */
   private static final Set<Material> DEPENDENT_BLOCKS =
       CreeperUtils.createFinalHashSet(
-          Material.TORCH,
+          Material.AMETHYST_CLUSTER,
+          Material.CAVE_VINES_PLANT,
+          Material.COCOA,
+          Material.HANGING_ROOTS,
           Material.LADDER,
           Material.LEVER,
+          Material.POINTED_DRIPSTONE,
           Material.REDSTONE_TORCH,
-          Material.VINE,
-          Material.COCOA,
-          Material.TRIPWIRE_HOOK);
+          Material.TORCH,
+          Material.TRIPWIRE_HOOK,
+          Material.VINE);
   /*
    * The block represented.
    */
@@ -183,7 +188,9 @@ public class CreeperBlock implements Replaceable {
         || Tag.STANDING_SIGNS.isTagged(type)
         || (Tag.CORAL_PLANTS.isTagged(type) && !Tag.WALL_CORALS.isTagged(type))
         || Tag.STANDING_SIGNS.isTagged(type)
-        || Tag.CROPS.isTagged(type)) {
+        || Tag.CROPS.isTagged(type)
+        || Tag.CANDLES.isTagged(type)
+        || Tag.CANDLE_CAKES.isTagged(type)) {
       return true;
     }
     return DEPENDENT_DOWN_BLOCKS.contains(type);
@@ -212,6 +219,7 @@ public class CreeperBlock implements Replaceable {
         || CreeperTag.WALL_BANNERS.isTagged(type)
         || Tag.WALL_SIGNS.isTagged(type)
         || Tag.BANNERS.isTagged(type)
+        || Tag.LEAVES.isTagged(type)
         || isDependentDown(type);
   }
 
